@@ -8,3 +8,5 @@ dist
 bin
 obj
 TizenBrewService
+.history
+package-lock.json

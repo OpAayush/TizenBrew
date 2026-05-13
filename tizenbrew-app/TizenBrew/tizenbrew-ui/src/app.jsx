@@ -1,17 +1,17 @@
-import { LocationProvider, ErrorBoundary, Router, Route } from 'preact-iso';
-import Home from './pages/Home.jsx';
-import ModuleManager, { AddModule } from './pages/ModuleManager.jsx';
-import Header from './components/Header.jsx';
-import { GlobalStateContext } from './components/ClientContext.jsx';
-import { useRef } from 'preact/hooks';
-import { useEffect, useState, useContext } from 'react';
-import Client from './components/WebSocketClient.js';
-import Settings, { Change } from './pages/Settings.jsx';
-import About from './pages/About.jsx';
-import './components/i18n.js';
-import UserAgentSettings from './pages/UserAgentSettings.jsx';
-import { ExclamationCircleIcon } from '@heroicons/react/16/solid';
-import { useTranslation } from 'react-i18next';
+import { LocationProvider, ErrorBoundary, Router, Route } from "preact-iso";
+import Home from "./pages/Home.jsx";
+import ModuleManager, { AddModule } from "./pages/ModuleManager.jsx";
+import Header from "./components/Header.jsx";
+import { GlobalStateContext } from "./components/ClientContext.jsx";
+import { useRef } from "preact/hooks";
+import { useEffect, useState, useContext } from "react";
+import Client from "./components/WebSocketClient.js";
+import Settings, { Change } from "./pages/Settings.jsx";
+import About from "./pages/About.jsx";
+import "./components/i18n.js";
+import UserAgentSettings from "./pages/UserAgentSettings.jsx";
+import { ExclamationCircleIcon } from "@heroicons/react/16/solid";
+import { useTranslation } from "react-i18next";
 
 export default function App() {
   const headerRef = useRef(null);
@@ -25,11 +25,11 @@ export default function App() {
     if (context.state.sharedData.error.disappear) {
       setTimeout(() => {
         context.dispatch({
-          type: 'SET_ERROR',
+          type: "SET_ERROR",
           payload: {
             message: null,
-            disappear: false
-          }
+            disappear: false,
+          },
         });
       }, 5000);
     }
@@ -45,28 +45,58 @@ export default function App() {
     }
   }, []);
 
-
   return (
     <ErrorBoundary>
       <LocationProvider>
         <Header ref={headerRef} />
-        <div className="bg-slate-800 text-white overflow-hidden" style={{ height: `calc(100vh - ${headerHeight}px)` }}>
-          <div className={`flex justify-center ${!context.state.sharedData.error.message ? 'hidden' : ''}`}>
-            <div class="flex items-center p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 bg-slate-900 mt-8 w-[95vw] text-red-400" role="alert">
+        <div
+          className="bg-slate-800 text-white overflow-hidden"
+          style={{ height: `calc(100vh - ${headerHeight}px)` }}
+        >
+          <div
+            className={`flex justify-center ${!context.state.sharedData.error.message ? "hidden" : ""}`}
+          >
+            <div
+              class="flex items-center p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 bg-slate-900 mt-8 w-[95vw] text-red-400"
+              role="alert"
+            >
               <ExclamationCircleIcon className="h-[4vw] w-[2vw] mr-2" />
               <div>
-                <span class="text-2xl">{t(context.state.sharedData.error.message, context.state.sharedData.error.args)}</span>
+                <span class="text-2xl">
+                  {t(
+                    context.state.sharedData.error.message,
+                    context.state.sharedData.error.args,
+                  )}
+                </span>
               </div>
             </div>
           </div>
           <Router>
             <Route component={Home} path="/tizenbrew-ui/dist/index.html" />
-            <Route component={ModuleManager} path="/tizenbrew-ui/dist/index.html/module-manager" />
-            <Route component={AddModule} path="/tizenbrew-ui/dist/index.html/module-manager/add" />
-            <Route component={Settings} path="/tizenbrew-ui/dist/index.html/settings" />
-            <Route component={Change} path="/tizenbrew-ui/dist/index.html/settings/change" />
-            <Route component={UserAgentSettings} path="/tizenbrew-ui/dist/index.html/settings/change-ua" />
-            <Route component={About} path="/tizenbrew-ui/dist/index.html/about" />
+            <Route
+              component={ModuleManager}
+              path="/tizenbrew-ui/dist/index.html/module-manager"
+            />
+            <Route
+              component={AddModule}
+              path="/tizenbrew-ui/dist/index.html/module-manager/add"
+            />
+            <Route
+              component={Settings}
+              path="/tizenbrew-ui/dist/index.html/settings"
+            />
+            <Route
+              component={Change}
+              path="/tizenbrew-ui/dist/index.html/settings/change"
+            />
+            <Route
+              component={UserAgentSettings}
+              path="/tizenbrew-ui/dist/index.html/settings/change-ua"
+            />
+            <Route
+              component={About}
+              path="/tizenbrew-ui/dist/index.html/about"
+            />
           </Router>
         </div>
       </LocationProvider>
@@ -74,42 +104,81 @@ export default function App() {
   );
 }
 
-
 function startService(context) {
-  const testWS = new WebSocket('ws://localhost:8081');
+  const pkgId = tizen.application.getCurrentApplication().appInfo.packageId;
+  const serviceId = pkgId + ".AXoBrewService";
 
-  testWS.onerror = () => {
-    const pkgId = tizen.application.getCurrentApplication().appInfo.packageId;
+  let reconnectAttempts = 0;
+  const maxReconnectAttempts = 30;
+  let serviceStarted = false;
 
-    const serviceId = pkgId + ".StandaloneService";
+  function attemptConnection() {
+    const testWS = new WebSocket("ws://localhost:8081");
 
-    tizen.application.launchAppControl(
-      new tizen.ApplicationControl("http://tizen.org/appcontrol/operation/service"),
-      serviceId,
-      function () {
-        context.dispatch({
-          type: 'SET_STATE',
-          payload: 'service.started'
-        });
+    testWS.onerror = () => {
+      if (reconnectAttempts === 0 && !serviceStarted) {
+        console.log("Service not running, launching...");
+        serviceStarted = true;
 
-        window.location.reload();
-      },
-      function (e) {
-        alert("Launch Service failed: " + e.message);
+        tizen.application.launchAppControl(
+          new tizen.ApplicationControl(
+            "http://tizen.org/appcontrol/operation/service",
+          ),
+          serviceId,
+          function () {
+            console.log("Service launched, waiting for startup...");
+            context.dispatch({
+              type: "SET_STATE",
+              payload: "service.starting",
+            });
+
+            reconnectWithBackoff();
+          },
+          function (e) {
+            console.error("Launch Service failed: " + e.message);
+            alert("Launch Service failed: " + e.message);
+          },
+        );
       }
-    );
+    };
+
+    testWS.onopen = () => {
+      console.log("Service connected successfully");
+      context.dispatch({
+        type: "SET_STATE",
+        payload: "service.alreadyRunning",
+      });
+
+      context.dispatch({
+        type: "SET_CLIENT",
+        payload: new Client(context),
+      });
+
+      testWS.close();
+    };
   }
 
-  testWS.onopen = () => {
-    context.dispatch({
-      type: 'SET_STATE',
-      payload: 'service.alreadyRunning'
-    });
+  function reconnectWithBackoff() {
+    if (reconnectAttempts >= maxReconnectAttempts) {
+      console.error("Max reconnection attempts reached");
+      context.dispatch({
+        type: "SET_ERROR",
+        payload: {
+          message: "errors.serviceStartFailed",
+          disappear: false,
+        },
+      });
+      return;
+    }
 
-    context.dispatch({
-      type: 'SET_CLIENT',
-      payload: new Client(context)
-    });
+    const delayMs = Math.min(50 * (reconnectAttempts + 1), 500);
+    reconnectAttempts++;
 
+    setTimeout(() => {
+      console.log(`Reconnection attempt ${reconnectAttempts}...`);
+      attemptConnection();
+    }, delayMs);
   }
+
+  attemptConnection();
 }
